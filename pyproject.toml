@@ -1,0 +1,72 @@
+[build-system]
+requires = ["setuptools>=61.0.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "validador-planilhas-powerbi"
+version = "1.0.0"
+description = "Script em Python que valida e padroniza planilhas antes de entrarem no Power Query."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+# CORRIGIDO: o CLI e o README anunciam suporte a .xls (formato antigo do
+# Excel), mas nada declarava xlrd — a biblioteca que o pandas exige para
+# ler .xls (openpyxl só lê .xlsx). Sem isso, pd.read_excel num .xls
+# quebrava com ImportError, mesmo com um arquivo perfeitamente válido.
+# Confirmado gerando e testando um .xls de verdade antes desta correção.
+dependencies = [
+    "pandas>=2.0.0",
+    "openpyxl>=3.0.0",
+    "xlrd>=2.0.1",
+    "streamlit>=1.30.0",
+    "reportlab>=4.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "ruff>=0.1.0",
+]
+
+# O projeto é um conjunto de módulos .py soltos na raiz (não um pacote com
+# __init__.py). `[tool.setuptools.packages.find]` procura por PACOTES
+# (diretórios), então nunca encontrava nada — o `pip install` terminava com
+# "Successfully installed", mas o pacote instalado ficava vazio e
+# `import validador_planilhas` falhava com ModuleNotFoundError.
+# `py-modules` é a forma correta de declarar módulos .py soltos.
+#
+# CORRIGIDO: listava só "validador_planilhas", mas o projeto tem três
+# módulos — validador_planilhas.py importa diretamente de
+# tratador_planilhas.py e nomes_colunas.py. Sem os três aqui, o pacote
+# instalado ficava incompleto: tanto `import validador_planilhas` quanto o
+# comando `validador-planilhas` quebravam com ModuleNotFoundError assim que
+# tentavam importar os módulos que faltaram. Confirmado testando os dois
+# caminhos num ambiente limpo antes desta correção. app.py fica de fora de
+# propósito — não é importado por ninguém, roda via `streamlit run app.py`.
+[tool.setuptools]
+py-modules = ["validador_planilhas", "tratador_planilhas", "nomes_colunas"]
+
+# Sem isso, mesmo com o empacotamento corrigido, o único jeito de rodar o
+# script após `pip install .` seria `python validador_planilhas.py`. Isso
+# expõe um comando de terminal de verdade: `validador-planilhas entrada.xlsx`.
+[project.scripts]
+validador-planilhas = "validador_planilhas:main"
+
+[tool.ruff]
+line-length = 88
+target-version = "py310"
+
+[tool.pytest.ini_options]
+minversion = "6.0"
+addopts = "-ra -q"
+testpaths = [
+    ".",
+]

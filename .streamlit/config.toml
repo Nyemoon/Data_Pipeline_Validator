@@ -1,0 +1,20 @@
+[theme]
+# Faz TODO componente nativo do Streamlit (inclusive os que renderizam em
+# iframe próprio, como st.dataframe, que não herdam CSS injetado via
+# st.markdown) nascer já no tema escuro — em vez de depender só de CSS
+# tentando sobrescrever de fora, que não alcança esses componentes.
+base = "dark"
+
+# Mesmas cores dos tokens já usados no CSS customizado do app.py
+# (--accent-primary, --surface-primary/secondary, --text-main), para que
+# os componentes nativos combinem visualmente com o restante da interface.
+primaryColor = "#fc620a"
+backgroundColor = "#14101A"
+secondaryBackgroundColor = "#1E1623"
+textColor = "#FFF8F0"
+
+# O Streamlit só aceita "sans serif", "serif" ou "monospace" aqui (não
+# nomes de fonte específicos). A tipografia customizada (Space Grotesk,
+# JetBrains Mono) continua vindo do @import + font-family no CSS do
+# app.py — isto aqui só define a fonte-base dos componentes nativos.
+font = "sans serif"

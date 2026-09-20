@@ -1,0 +1,96 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+bin/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Ambientes virtuais
+# CORRIGIDO (auditoria): a cobertura de venv era acidental e incompleta —
+# só funcionava por coincidência com os padrões genéricos de "Distribution
+# / packaging" acima (lib/ pegava o site-packages, por exemplo), mas
+# deixava passar pyvenv.cfg e a estrutura do Windows (venv/Scripts/).
+# Confirmado testando com git check-ignore antes desta correção.
+.env
+.venv/
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Streamlit
+# ADICIONADO (auditoria): .streamlit/config.toml FICA versionado de
+# propósito (define o tema da interface) — só secrets.toml é ignorado.
+.streamlit/secrets.toml
+
+# Pytest / Testing
+.pytest_cache/
+.tox/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+
+# IDEs e Editores
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Arquivos de sistema operacional
+# ADICIONADO (auditoria): lixo de SO que não tem por que entrar no repo.
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Arquivos gerados pelo script e relatórios locais
+relatorio.md
+relatorio_ci.md
+*.log
+
+# Saídas locais de teste e exports gerados durante o desenvolvimento
+# ADICIONADO (auditoria): o projeto inteiro gira em torno de gerar
+# planilhas/relatórios de teste (.xlsx, .csv, .pdf, .md) — sem isso, um
+# `git add -A` desatento sobe esse lixo de teste para o repositório.
+# Inclui tanto padrões genéricos quanto os nomes de arquivo reais que
+# app.py e validador_planilhas.py geram (confirmado testando com
+# git check-ignore contra os nomes de saída de verdade dos dois módulos).
+# Ajuste os padrões conforme seu fluxo. Para versionar um arquivo de
+# exemplo de propósito mesmo com o padrão ativo, use `git add -f`.
+teste_*.xlsx
+*_teste.xlsx
+tratado*.xlsx
+saida*.xlsx
+planilha_limpa*.xlsx
+planilha_multitab*.xlsx
+dataset_sanitized*.xlsx
+dataset_multitab*.xlsx
+*.pdf
+rel_*.md
+audit_report.*
+relatorio_validacao*.md
+config?.json
+
+# Planilhas de saída geradas por testes ou execuções locais (opcional, ajuste se quiser versionar alguma)
+# *limpo.xlsx
