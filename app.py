@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 import base64
 import io
 import json
@@ -8,24 +9,31 @@ from pathlib import Path
 import pandas as pd
 import streamlit as st
 from openpyxl.utils.exceptions import InvalidFileException
+from reportlab.lib import colors
 
 # Importações para geração do PDF via ReportLab
 from reportlab.lib.pagesizes import letter
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, HRFlowable
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.lib import colors
+from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
+from reportlab.platypus import (
+    HRFlowable,
+    Paragraph,
+    SimpleDocTemplate,
+    Spacer,
+    Table,
+    TableStyle,
+)
 
+from tratador_planilhas import tratar_dataframe_completo
 from validador_planilhas import (
-    EncodingDetectionError,
     SEVERITY_CRITICAL,
     SEVERITY_INFO,
     SEVERITY_WARNING,
+    EncodingDetectionError,
     _load_csv,
     render_markdown_report,
     resolve_duplicate_sheet_names,
     run_single_validation,
 )
-from tratador_planilhas import tratar_dataframe_completo
 
 # ---------------------------------------------------------------------------
 # Configuração da página
@@ -492,8 +500,8 @@ if uploaded_config:
         if chaves_extras:
             st.sidebar.warning(f"Atributos desconhecidos ignorados: {', '.join(sorted(chaves_extras))}")
         st.sidebar.success("Contrato de esquema carregado.")
-    except Exception as err:
-        st.sidebar.error(f"Erro no parse do JSON: {err}")
+    except json.JSONDecodeError as err:
+        st.sidebar.error(f"JSON inválido: {err}")
 
 required_columns = config_data.get("colunas_obrigatorias", [])
 expected_types = config_data.get("tipos_esperados", {})
@@ -618,7 +626,7 @@ if uploaded_file:
                 status.update(label="Formato Inválido", state="error")
                 st.error("Estrutura do ficheiro corrompida ou formato incompatível com os parsers suportados.")
                 st.session_state.pop("validation_result", None)
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 — fallback de último recurso; erros inesperados devem ser exibidos ao usuário
                 status.update(label="Erro Crítico de Execução", state="error")
                 st.error(f"Exceção não tratada durante o processamento: {e}")
                 st.session_state.pop("validation_result", None)
