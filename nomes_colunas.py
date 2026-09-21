@@ -16,6 +16,7 @@ duplicata por chave) falhava silenciosamente, sem erro nenhum.
 """
 
 from __future__ import annotations
+
 import re
 import unicodedata
 
