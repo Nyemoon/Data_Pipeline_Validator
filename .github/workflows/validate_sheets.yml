@@ -50,6 +50,9 @@ jobs:
       - name: Rodar Suíte de Testes
         run: pytest test_validador.py -v
 
+      - name: Lint (ruff)
+        run: ruff check .
+
   # ---------------------------------------------------------------------
   # CORRIGIDO: a versão anterior sempre validava um caminho fixo
   # (dados/entrada.xlsx), desconectado do que o gatilho (paths: **.xlsx,
