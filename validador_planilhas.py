@@ -53,10 +53,13 @@ import sys
 import warnings
 from dataclasses import dataclass, field
 from pathlib import Path
-from tratador_planilhas import tratar_dataframe_completo, remover_colunas_vazias, remover_duplicadas
-from nomes_colunas import remove_accents, standardize_column_name
 
 import pandas as pd
+
+from nomes_colunas import standardize_column_name
+from tratador_planilhas import (
+    tratar_dataframe_completo,
+)
 
 # ---------------------------------------------------------------------------
 # Configuração
@@ -134,7 +137,7 @@ def _load_csv(path_or_buffer) -> pd.DataFrame:
     que permite reaproveitar esta função tanto no CLI quanto na interface
     web em vez de duplicar a lógica de fallback de encoding em cada lugar.
     """
-    encodings_to_try = ("utf-8-sig", "latin-1")
+    encodings_to_try = ("utf-8-sig", "latin-1", "cp1252")
     last_error: Exception | None = None
     is_seekable_buffer = hasattr(path_or_buffer, "seek")
 
@@ -162,8 +165,8 @@ def _load_csv(path_or_buffer) -> pd.DataFrame:
 
 def get_excel_sheets(path: str) -> list[str]:
     """Retorna o nome de todas as abas de um arquivo Excel."""
-    xl = pd.ExcelFile(path)
-    return xl.sheet_names
+    with pd.ExcelFile(path) as xl:
+        return list(xl.sheet_names)
 
 
 def resolve_duplicate_sheet_names(sheet_names: list[str]) -> dict[str, str]:
@@ -319,11 +322,11 @@ def check_empty_columns(df: pd.DataFrame, report: ValidationReport) -> set[str]:
 
 def check_nulls(df: pd.DataFrame, report: ValidationReport, skip_columns: set[str] | None = None) -> None:
     skip_columns = skip_columns or set()
+    if len(df) == 0:
+        return
     for col in df.columns:
         if col in skip_columns:
             continue  # já reportado por check_empty_columns
-        if len(df) == 0:
-            continue
         null_ratio = df[col].isna().mean()
         if null_ratio == 0:
             continue
@@ -600,7 +603,10 @@ def load_config(path: str | None) -> dict:
     if not path:
         return {}
     with open(path, "r", encoding="utf-8") as f:
-        return json.load(f)
+        try:
+            return json.load(f)
+        except json.JSONDecodeError as e:
+            raise SystemExit(f"Erro: config.json inválido — {e}") from e
 
 
 def _resolve_sheet_arg(sheet_arg: str | None) -> str | int | None:
@@ -608,9 +614,10 @@ def _resolve_sheet_arg(sheet_arg: str | None) -> str | int | None:
     (ex.: '1'), ou mantém como string quando for o nome da aba."""
     if sheet_arg is None:
         return None
-    if sheet_arg.isdigit():
+    try:
         return int(sheet_arg)
-    return sheet_arg
+    except ValueError:
+        return sheet_arg
 
 
 def main() -> int:
@@ -700,7 +707,7 @@ def main() -> int:
     except FileNotFoundError:
         print(f"Erro: arquivo não encontrado: '{args.entrada}'.", file=sys.stderr)
         return 2
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 — fallback de último recurso no CLI; erros não previstos devem ser reportados
         print(f"Erro ao processar o arquivo: {e}", file=sys.stderr)
         return 2
 
