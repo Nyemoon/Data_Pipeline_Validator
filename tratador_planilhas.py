@@ -5,8 +5,10 @@ Funções utilitárias puras para tratar e limpar dataframes do pandas.
 """
 
 from __future__ import annotations
-import pandas as pd
+
 import warnings
+
+import pandas as pd
 
 from nomes_colunas import standardize_column_name
 
@@ -38,6 +40,12 @@ def remover_duplicadas(df: pd.DataFrame, chave: str | None = None) -> pd.DataFra
         chave_normalizada = standardize_column_name(chave)
         if chave_normalizada in df.columns:
             return df.drop_duplicates(subset=[chave_normalizada], keep="first")
+        warnings.warn(
+            f"Coluna chave '{chave}' (normalizada: '{chave_normalizada}') não foi encontrada no DataFrame. "
+            "Removendo apenas linhas inteiramente duplicadas.",
+            UserWarning,
+            stacklevel=2,
+        )
     return df.drop_duplicates()
 
 def _tentar_converter(series: pd.Series, tipo: str) -> pd.Series | None:
@@ -48,7 +56,9 @@ def _tentar_converter(series: pd.Series, tipo: str) -> pd.Series | None:
     if tipo == "numero":
         return pd.to_numeric(series, errors="coerce")
     if tipo == "data":
-        return pd.to_datetime(series, errors="coerce", dayfirst=True)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", UserWarning)
+            return pd.to_datetime(series, errors="coerce", dayfirst=True)
     if tipo == "texto":
         return series
     return None
