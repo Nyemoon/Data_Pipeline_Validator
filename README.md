@@ -16,8 +16,9 @@ Duas formas de uso:
 ├── validador_planilhas.py       # Motor de validação + CLI
 ├── tratador_planilhas.py        # Motor de tratamento (limpeza dos dados)
 ├── nomes_colunas.py             # Normalização de nomes de coluna (compartilhado pelos dois acima)
+├── relatorio_pdf.py             # Gerador de relatórios analíticos em PDF (ReportLab)
 ├── app.py                       # Interface web (Streamlit)
-├── test_validador.py            # Suíte de testes (pytest: 62 testes, 99.8% de cobertura)
+├── test_validador.py            # Suíte de testes (pytest: 66 testes, 100% de cobertura nos motores)
 ├── config.exemplo.json          # Modelo de config.json
 ├── pyproject.toml               # Metadados, dependências, config de lint/teste
 ├── .github/
@@ -29,7 +30,7 @@ Duas formas de uso:
 └── imagens/                     # Imagens de fundo da interface (opcional)
 ```
 
-`validador_planilhas.py` e `tratador_planilhas.py` são módulos separados por responsabilidade — um só **valida** (encontra problemas, gera relatório), o outro só **trata** (corrige os dados: remove coluna vazia, deduplica, converte tipo). `nomes_colunas.py` existe à parte porque os outros dois precisam da mesma normalização de nome de coluna, e um não pode importar do outro sem criar um import circular.
+`validador_planilhas.py` e `tratador_planilhas.py` são módulos separados por responsabilidade — um só **valida** (encontra problemas, gera relatório), o outro só **trata** (corrige os dados: remove coluna vazia, deduplica, converte tipo). `nomes_colunas.py` e `relatorio_pdf.py` existem à parte como utilitários puros desacoplados da interface web, evitando imports circulares e viabilizando testes unitários dedicados.
 
 ---
 
@@ -91,14 +92,14 @@ pip install -e ".[dev]"
 
 ## Testes, Cobertura e Qualidade de Código
 
-O projeto conta com uma suíte abrangente de **62 testes unitários e de integração** com **99.8% de cobertura**:
+O projeto conta com uma suíte abrangente de **66 testes unitários e de integração** com **100% de cobertura nos módulos de suporte e dados**:
 
 ```bash
 # Rodar todos os testes
 pytest test_validador.py -v
 
 # Rodar testes com relatório de cobertura de código
-pytest test_validador.py --cov=validador_planilhas --cov=tratador_planilhas --cov=nomes_colunas --cov-report=term-missing
+pytest test_validador.py --cov=validador_planilhas --cov=tratador_planilhas --cov=nomes_colunas --cov=relatorio_pdf --cov-report=term-missing
 
 # Verificar conformidade de estilo e boas práticas com ruff
 ruff check .
@@ -227,8 +228,9 @@ python validador_planilhas.py entrada.xlsx || echo "Corrija os problemas antes d
 ## Changelog
 
 ### Auditorias e Refinamento Contínuo (Qualidade, Robustez e Cobertura)
-- **Cobertura de testes de 99.8%**: expansão da suíte para 62 testes automatizados cobrindo todos os fluxos de validação, tratamento, CLI e edge cases.
-- **Integração Contínua (CI)**: adicionado workflow do GitHub Actions com validação de testes (`pytest`) e análise estática (`ruff check .`).
+- **Cobertura de testes expandida para 66 testes**: suíte completa cobrindo motores de validação, tratamento, CLI, geração de PDF com escaping e edge cases.
+- **Integração Contínua (CI) resiliente**: suporte a caminhos com espaços via delimitador `<<EOF` e `while IFS= read -r`, além de gatilhos ampliados para monitorar dependências, testes e interface.
+- **Desacoplamento do gerador de PDF**: extração de `relatorio_pdf.py` com sanitização contra injeção de XML/HTML em campos dinâmicos do ReportLab.
 - **Triplo fallback de encoding em CSV**: adicionado fallback para `cp1252` (Windows-1252) após `utf-8-sig` e `latin-1`, garantindo decodificação correta de arquivos gerados por versões antigas do Excel no Windows.
 - **Fechamento seguro de arquivos Excel**: `get_excel_sheets` utiliza context manager `with pd.ExcelFile` garantindo que descritores de arquivos não fiquem abertos (prevenindo vazamento de recursos e bloqueio em sistemas Windows).
 - **Tratamento gracioso de JSONDecodeError**: tanto no CLI (`load_config`) quanto na interface web (`app.py`), arquivos JSON malformados geram mensagens de erro claras e amigáveis sem expor tracebacks não tratados.
