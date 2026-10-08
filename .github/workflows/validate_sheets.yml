@@ -9,7 +9,12 @@ on:
       - 'validador_planilhas.py'
       - 'tratador_planilhas.py'
       - 'nomes_colunas.py'
+      - 'relatorio_pdf.py'
+      - 'test_validador.py'
+      - 'app.py'
       - 'config.json'
+      - 'pyproject.toml'
+      - '.github/workflows/**'
   pull_request:
     paths:
       - '**.xlsx'
@@ -18,7 +23,12 @@ on:
       - 'validador_planilhas.py'
       - 'tratador_planilhas.py'
       - 'nomes_colunas.py'
+      - 'relatorio_pdf.py'
+      - 'test_validador.py'
+      - 'app.py'
       - 'config.json'
+      - 'pyproject.toml'
+      - '.github/workflows/**'
   workflow_dispatch:
 
 jobs:
@@ -106,17 +116,22 @@ jobs:
             fi
           fi
 
-          ALTERADOS=$(git diff --name-only "$BASE" "${{ github.sha }}" -- '*.xlsx' '*.xls' '*.csv' | tr '\n' ' ')
-          echo "planilhas=$ALTERADOS" >> "$GITHUB_OUTPUT"
-          echo "Planilhas alteradas: $ALTERADOS"
+          # Salva a lista de arquivos alterados preservando quebras de linha
+          # para suportar com segurança arquivos contendo espaços no nome.
+          echo "planilhas<<EOF" >> "$GITHUB_OUTPUT"
+          git diff --name-only "$BASE" "${{ github.sha }}" -- '*.xlsx' '*.xls' '*.csv' >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
 
       - name: Executar Validador em Cada Planilha Alterada
         if: steps.arquivos.outputs.planilhas != ''
+        env:
+          PLANILHAS: ${{ steps.arquivos.outputs.planilhas }}
         run: |
           FALHOU=0
           : > relatorio_ci.md
 
-          for arquivo in ${{ steps.arquivos.outputs.planilhas }}; do
+          while IFS= read -r arquivo; do
+            [ -z "$arquivo" ] && continue
             echo "::group::Validando $arquivo"
 
             CONFIG_ARG=""
@@ -134,7 +149,7 @@ jobs:
               FALHOU=1
             fi
             echo "::endgroup::"
-          done
+          done <<< "$PLANILHAS"
 
           # Falha o job só depois de validar TODAS as planilhas alteradas
           # (não para na primeira com problema), para o relatório final
