@@ -124,9 +124,7 @@ def gerar_pdf_relatorio(reports: list[ValidationReport]) -> bytes:
 
     for report in reports:
         aba_nome = report.sheet_name or "Global Stream (CSV)"
-        origem_nome = getattr(
-            report, "source_file", getattr(report, "source_name", "Ficheiro Carregado")
-        )
+        origem_nome = report.source_file
 
         story.append(
             Paragraph(f"<b>Partição / Aba:</b> {escape(str(aba_nome))}", style_heading)
