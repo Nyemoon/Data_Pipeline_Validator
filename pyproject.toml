@@ -52,7 +52,7 @@ dev = [
 # caminhos num ambiente limpo antes desta correção. app.py fica de fora de
 # propósito — não é importado por ninguém, roda via `streamlit run app.py`.
 [tool.setuptools]
-py-modules = ["validador_planilhas", "tratador_planilhas", "nomes_colunas"]
+py-modules = ["validador_planilhas", "tratador_planilhas", "nomes_colunas", "relatorio_pdf"]
 
 # Sem isso, mesmo com o empacotamento corrigido, o único jeito de rodar o
 # script após `pip install .` seria `python validador_planilhas.py`. Isso
