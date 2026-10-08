@@ -65,9 +65,9 @@ from tratador_planilhas import (
 # Configuração
 # ---------------------------------------------------------------------------
 
-NULL_WARNING_THRESHOLD = 0.05   # 5% de nulos já gera aviso
+NULL_WARNING_THRESHOLD = 0.05  # 5% de nulos já gera aviso
 NULL_CRITICAL_THRESHOLD = 0.30  # 30%+ é crítico
-FUZZY_MATCH_THRESHOLD = 0.80    # 80% de similaridade para match aproximado
+FUZZY_MATCH_THRESHOLD = 0.80  # 80% de similaridade para match aproximado
 MIXED_TYPES_SAMPLE_LIMIT = 50_000  # teto de linhas varridas por coluna (perf)
 
 SEVERITY_INFO = "INFO"
@@ -113,10 +113,16 @@ class ValidationReport:
     def count_by_severity(self, severity: str) -> int:
         return sum(1 for f in self.findings if f.severity == severity)
 
+    @property
+    def source_name(self) -> str:
+        """Alias para source_file para consistência entre CLI e interfaces."""
+        return self.source_file
+
 
 # ---------------------------------------------------------------------------
 # Leitura de arquivo
 # ---------------------------------------------------------------------------
+
 
 def load_spreadsheet(path: str, sheet_name: str | int | None = 0) -> pd.DataFrame:
     ext = Path(path).suffix.lower()
@@ -212,6 +218,7 @@ def resolve_duplicate_sheet_names(sheet_names: list[str]) -> dict[str, str]:
 # uma opção, pois criaria uma importação circular (este módulo já importa de
 # tratador_planilhas.py) — daí a extração para um terceiro módulo neutro.
 
+
 def standardize_columns(df: pd.DataFrame, report: ValidationReport) -> pd.DataFrame:
     rename_map: dict[str, str] = {}
     seen: dict[str, int] = {}
@@ -250,6 +257,7 @@ def standardize_columns(df: pd.DataFrame, report: ValidationReport) -> pd.DataFr
 # Checagens de qualidade (com Match Aproximado / Fuzzy Matching)
 # ---------------------------------------------------------------------------
 
+
 def check_required_columns(
     df: pd.DataFrame, required: list[str], report: ValidationReport
 ) -> pd.DataFrame:
@@ -273,7 +281,9 @@ def check_required_columns(
         # Tentativa de Match Aproximado (Fuzzy Matching) com difflib
         # (não considera colunas já usadas em outro match aproximado)
         candidates = [c for c in current_columns if c not in fuzzy_rename_map]
-        matches = difflib.get_close_matches(req_std, candidates, n=1, cutoff=FUZZY_MATCH_THRESHOLD)
+        matches = difflib.get_close_matches(
+            req_std, candidates, n=1, cutoff=FUZZY_MATCH_THRESHOLD
+        )
         if matches:
             matched_col = matches[0]
             fuzzy_rename_map[matched_col] = req_std
@@ -297,7 +307,11 @@ def check_required_columns(
             "Colunas obrigatórias",
             f"Coluna(s) obrigatória(s) ausente(s) ou sem correspondência aproximada: {', '.join(missing)}.",
         )
-    elif not any(f.category.startswith("Colunas obrigatórias") and f.severity == SEVERITY_CRITICAL for f in report.findings):
+    elif not any(
+        f.category.startswith("Colunas obrigatórias")
+        and f.severity == SEVERITY_CRITICAL
+        for f in report.findings
+    ):
         report.add(
             SEVERITY_INFO,
             "Colunas obrigatórias",
@@ -320,7 +334,9 @@ def check_empty_columns(df: pd.DataFrame, report: ValidationReport) -> set[str]:
     return empty_cols
 
 
-def check_nulls(df: pd.DataFrame, report: ValidationReport, skip_columns: set[str] | None = None) -> None:
+def check_nulls(
+    df: pd.DataFrame, report: ValidationReport, skip_columns: set[str] | None = None
+) -> None:
     skip_columns = skip_columns or set()
     if len(df) == 0:
         return
@@ -364,7 +380,9 @@ def check_duplicate_rows(df: pd.DataFrame, report: ValidationReport) -> None:
         )
 
 
-def check_duplicate_key(df: pd.DataFrame, key_column: str | None, report: ValidationReport) -> None:
+def check_duplicate_key(
+    df: pd.DataFrame, key_column: str | None, report: ValidationReport
+) -> None:
     if not key_column:
         return
     key_std = standardize_column_name(key_column)
@@ -400,8 +418,10 @@ def check_mixed_types(df: pd.DataFrame, report: ValidationReport) -> None:
         if non_null.empty:
             continue
 
-        sample = non_null if len(non_null) <= MIXED_TYPES_SAMPLE_LIMIT else non_null.sample(
-            MIXED_TYPES_SAMPLE_LIMIT, random_state=0
+        sample = (
+            non_null
+            if len(non_null) <= MIXED_TYPES_SAMPLE_LIMIT
+            else non_null.sample(MIXED_TYPES_SAMPLE_LIMIT, random_state=0)
         )
 
         types_found = set()
@@ -425,7 +445,9 @@ def check_mixed_types(df: pd.DataFrame, report: ValidationReport) -> None:
             )
 
 
-def _compatibilidade_tipo(series: pd.Series, tipo: str, col: str, report: ValidationReport) -> float:
+def _compatibilidade_tipo(
+    series: pd.Series, tipo: str, col: str, report: ValidationReport
+) -> float:
     """Calcula a fração de valores de `series` compatíveis com `tipo`
     ('numero', 'data', ou qualquer outra string tratada como 'aceita
     qualquer coisa', ex. 'texto'). Extraído de check_expected_types para
@@ -446,7 +468,11 @@ def _compatibilidade_tipo(series: pd.Series, tipo: str, col: str, report: Valida
             numeric_like_ratio = 1.0
         else:
             numeric_like_ratio = (
-                series.astype(str).str.strip().str.fullmatch(r"-?\d+(\.\d+)?").fillna(False).mean()
+                series.astype(str)
+                .str.strip()
+                .str.fullmatch(r"-?\d+(\.\d+)?")
+                .fillna(False)
+                .mean()
             )
 
         with warnings.catch_warnings():
@@ -474,7 +500,9 @@ def _compatibilidade_tipo(series: pd.Series, tipo: str, col: str, report: Valida
 
 
 def check_expected_types(
-    df: pd.DataFrame, expected_types: dict[str, str | list[str]], report: ValidationReport
+    df: pd.DataFrame,
+    expected_types: dict[str, str | list[str]],
+    report: ValidationReport,
 ) -> None:
     """Valida se cada coluna bate com o(s) tipo(s) esperado(s).
 
@@ -510,7 +538,9 @@ def check_expected_types(
                     f"{melhor_ok * 100:.1f}% dos valores são compatíveis.",
                 )
             else:
-                detalhe = ", ".join(f"'{t}': {r * 100:.1f}%" for t, r in resultados.items())
+                detalhe = ", ".join(
+                    f"'{t}': {r * 100:.1f}%" for t, r in resultados.items()
+                )
                 report.add(
                     SEVERITY_CRITICAL,
                     "Tipo esperado",
@@ -522,6 +552,7 @@ def check_expected_types(
 # ---------------------------------------------------------------------------
 # Execução da validação unitária (por DataFrame/Aba)
 # ---------------------------------------------------------------------------
+
 
 def run_single_validation(
     df: pd.DataFrame,
@@ -546,7 +577,11 @@ def run_single_validation(
         check_expected_types(df, expected_types, report)
 
     if not report.findings:
-        report.add(SEVERITY_INFO, "Geral", "Nenhum problema encontrado. Planilha pronta para uso.")
+        report.add(
+            SEVERITY_INFO,
+            "Geral",
+            "Nenhum problema encontrado. Planilha pronta para uso.",
+        )
 
     return df, report
 
@@ -554,6 +589,7 @@ def run_single_validation(
 # ---------------------------------------------------------------------------
 # Relatório em Markdown
 # ---------------------------------------------------------------------------
+
 
 def render_markdown_report(reports: list[ValidationReport]) -> str:
     lines = ["# Relatório de Validação de Planilhas", ""]
@@ -564,9 +600,11 @@ def render_markdown_report(reports: list[ValidationReport]) -> str:
         lines.append("")
         lines.append(f"- Linhas: **{report.total_rows}**")
         lines.append(f"- Colunas: **{report.total_cols}**")
-        lines.append(f"- Críticos: **{report.count_by_severity(SEVERITY_CRITICAL)}** | "
-                     f"Avisos: **{report.count_by_severity(SEVERITY_WARNING)}** | "
-                     f"Info: **{report.count_by_severity(SEVERITY_INFO)}**")
+        lines.append(
+            f"- Críticos: **{report.count_by_severity(SEVERITY_CRITICAL)}** | "
+            f"Avisos: **{report.count_by_severity(SEVERITY_WARNING)}** | "
+            f"Info: **{report.count_by_severity(SEVERITY_INFO)}**"
+        )
         lines.append("")
 
         if report.column_rename_map:
@@ -587,7 +625,9 @@ def render_markdown_report(reports: list[ValidationReport]) -> str:
 
         lines.append("")
         if report.has_critical():
-            lines.append("> ⚠️ **Existem problemas críticos nesta aba/arquivo. Corrija antes de publicar no Power BI.**")
+            lines.append(
+                "> ⚠️ **Existem problemas críticos nesta aba/arquivo. Corrija antes de publicar no Power BI.**"
+            )
         else:
             lines.append("> ✅ Nenhum problema crítico encontrado.")
         lines.append("\n---\n")
@@ -598,6 +638,7 @@ def render_markdown_report(reports: list[ValidationReport]) -> str:
 # ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
+
 
 def load_config(path: str | None) -> dict:
     if not path:
@@ -625,12 +666,28 @@ def main() -> int:
         description="Valida e padroniza planilhas antes de subir ao Power BI."
     )
     parser.add_argument("entrada", help="Caminho do arquivo .csv, .xlsx ou .xls")
-    parser.add_argument("--config", help="Caminho de um config.json com colunas obrigatórias/tipos")
-    parser.add_argument("--output", help="Caminho para salvar a planilha padronizada (.xlsx ou .csv)")
-    parser.add_argument("--report", default="relatorio.md", help="Caminho do relatório em Markdown")
-    parser.add_argument("--chave-duplicata", dest="chave_duplicata", help="Nome da coluna a checar como chave única")
-    parser.add_argument("--sheet", help="Nome ou índice (numérico) da aba do Excel a ser validada")
-    parser.add_argument("--all-sheets", action="store_true", help="Valida todas as abas de um arquivo Excel")
+    parser.add_argument(
+        "--config", help="Caminho de um config.json com colunas obrigatórias/tipos"
+    )
+    parser.add_argument(
+        "--output", help="Caminho para salvar a planilha padronizada (.xlsx ou .csv)"
+    )
+    parser.add_argument(
+        "--report", default="relatorio.md", help="Caminho do relatório em Markdown"
+    )
+    parser.add_argument(
+        "--chave-duplicata",
+        dest="chave_duplicata",
+        help="Nome da coluna a checar como chave única",
+    )
+    parser.add_argument(
+        "--sheet", help="Nome ou índice (numérico) da aba do Excel a ser validada"
+    )
+    parser.add_argument(
+        "--all-sheets",
+        action="store_true",
+        help="Valida todas as abas de um arquivo Excel",
+    )
     args = parser.parse_args()
 
     config = load_config(args.config)
@@ -666,10 +723,12 @@ def main() -> int:
 
                 df = pd.read_excel(xl, sheet_name=sname)
                 df_clean, report = run_single_validation(
-                    df, args.entrada, sheet_name=sname,
+                    df,
+                    args.entrada,
+                    sheet_name=sname,
                     required_columns=required_columns,
                     expected_types=expected_types,
-                    duplicate_key=duplicate_key
+                    duplicate_key=duplicate_key,
                 )
                 if save_key != sname:
                     report.add(
@@ -682,15 +741,19 @@ def main() -> int:
                 reports.append(report)
                 dfs_to_save[save_key] = df_clean
         else:
-            resolved_sheet = _resolve_sheet_arg(args.sheet) if ext in (".xlsx", ".xls") else None
+            resolved_sheet = (
+                _resolve_sheet_arg(args.sheet) if ext in (".xlsx", ".xls") else None
+            )
             target_sheet = resolved_sheet if args.sheet else 0
             df = load_spreadsheet(args.entrada, sheet_name=target_sheet)
             s_label = str(target_sheet) if args.sheet else None
             df_clean, report = run_single_validation(
-                df, args.entrada, sheet_name=s_label,
+                df,
+                args.entrada,
+                sheet_name=s_label,
                 required_columns=required_columns,
                 expected_types=expected_types,
-                duplicate_key=duplicate_key
+                duplicate_key=duplicate_key,
             )
             reports.append(report)
             dfs_to_save["default"] = df_clean
@@ -722,14 +785,12 @@ def main() -> int:
 
         if is_single_df:
             single_df = next(iter(dfs_to_save.values()))
-            
+
             # --- APLICA O TRATAMENTO AQUI ANTES DE SALVAR ---
             single_df = tratar_dataframe_completo(
-                single_df, 
-                chave_duplicata=duplicate_key, 
-                tipos_esperados=expected_types
+                single_df, chave_duplicata=duplicate_key, tipos_esperados=expected_types
             )
-            
+
             if out_ext == ".csv":
                 single_df.to_csv(args.output, index=False)
             else:
@@ -743,14 +804,14 @@ def main() -> int:
                     file=sys.stderr,
                 )
                 return 2
-            
+
             with pd.ExcelWriter(args.output, engine="openpyxl") as writer:
                 for sname, df_s in dfs_to_save.items():
                     # --- APLICA O TRATAMENTO EM CADA ABA ---
                     df_tratado = tratar_dataframe_completo(
-                        df_s, 
-                        chave_duplicata=duplicate_key, 
-                        tipos_esperados=expected_types
+                        df_s,
+                        chave_duplicata=duplicate_key,
+                        tipos_esperados=expected_types,
                     )
                     df_tratado.to_excel(writer, sheet_name=sname, index=False)
             print(f"Planilha com múltiplas abas tratadas salva em: {args.output}")
@@ -761,6 +822,7 @@ def main() -> int:
     # quebrando qualquer pipeline que dependa do exit code para travar builds.
     has_any_critical = any(r.has_critical() for r in reports)
     return 1 if has_any_critical else 0
+
 
 if __name__ == "__main__":
     sys.exit(main())
