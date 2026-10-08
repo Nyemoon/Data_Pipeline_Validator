@@ -32,9 +32,9 @@ def standardize_column_name(name: str) -> str:
     name = name.strip()
     name = remove_accents(name)
     name = name.lower()
-    name = re.sub(r"[^\w\s]", "_", name)      # pontuação -> underscore
-    name = re.sub(r"\s+", "_", name)            # espaços -> underscore
-    name = re.sub(r"_+", "_", name)             # underscores repetidos
+    name = re.sub(r"[^\w\s]", "_", name)  # pontuação -> underscore
+    name = re.sub(r"\s+", "_", name)  # espaços -> underscore
+    name = re.sub(r"_+", "_", name)  # underscores repetidos
     name = name.strip("_")
     if not name:
         name = "coluna_sem_nome"
