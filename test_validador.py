@@ -23,6 +23,7 @@ import pytest
 
 import validador_planilhas as vp
 from nomes_colunas import standardize_column_name
+from relatorio_pdf import gerar_pdf_relatorio
 from tratador_planilhas import (
     _tentar_converter,
     converter_tipos_colunas,
@@ -76,6 +77,7 @@ def report() -> ValidationReport:
 # Testes unitários — padronização de colunas
 # ---------------------------------------------------------------------------
 
+
 def test_standardize_columns(report):
     # Testa se remove acentos, espaços, caracteres invisíveis e converte para snake_case
     df = pd.DataFrame(columns=["  ID Pedido! ", "Data Venda\xa0", "VALOR TOTAL"])
@@ -89,11 +91,14 @@ def test_standardize_columns(report):
 # Testes unitários — nulos e colunas vazias
 # ---------------------------------------------------------------------------
 
+
 def test_check_nulls(report):
-    df = pd.DataFrame({
-        "col_ok": [1, 2, 3, 4],
-        "col_alta_nula": [None, None, None, 1]  # 75% nulo
-    })
+    df = pd.DataFrame(
+        {
+            "col_ok": [1, 2, 3, 4],
+            "col_alta_nula": [None, None, None, 1],  # 75% nulo
+        }
+    )
     check_nulls(df, report)
 
     # CORRIGIDO (revisão): a asserção original só conferia se a coluna era
@@ -108,10 +113,12 @@ def test_check_nulls(report):
 def test_check_nulls_skip_columns(report):
     """CORRIGIDO (auditoria): check_nulls não deve duplicar o achado de uma
     coluna já reportada como 100% vazia por check_empty_columns."""
-    df = pd.DataFrame({
-        "vazia": [None, None, None],
-        "ok": [1, 2, 3],
-    })
+    df = pd.DataFrame(
+        {
+            "vazia": [None, None, None],
+            "ok": [1, 2, 3],
+        }
+    )
     empty_cols = check_empty_columns(df, report)
     check_nulls(df, report, skip_columns=empty_cols)
 
@@ -123,10 +130,7 @@ def test_check_nulls_skip_columns(report):
 
 
 def test_check_empty_columns(report):
-    df = pd.DataFrame({
-        "preenchida": [1, 2, 3],
-        "vazia": [None, None, None]
-    })
+    df = pd.DataFrame({"preenchida": [1, 2, 3], "vazia": [None, None, None]})
     empty_cols = check_empty_columns(df, report)
 
     assert "vazia" in empty_cols
@@ -137,11 +141,14 @@ def test_check_empty_columns(report):
 # Testes unitários — duplicatas
 # ---------------------------------------------------------------------------
 
+
 def test_check_duplicate_key(report):
-    df = pd.DataFrame({
-        "id_pedido": [101, 102, 101],  # 101 duplicado
-        "valor": [50, 60, 55]
-    })
+    df = pd.DataFrame(
+        {
+            "id_pedido": [101, 102, 101],  # 101 duplicado
+            "valor": [50, 60, 55],
+        }
+    )
     check_duplicate_key(df, key_column="id_pedido", report=report)
 
     assert report.has_critical()
@@ -149,10 +156,12 @@ def test_check_duplicate_key(report):
 
 
 def test_check_duplicate_rows(report):
-    df = pd.DataFrame({
-        "a": [1, 2, 1],
-        "b": ["x", "y", "x"],
-    })  # linha 0 e 2 são inteiramente duplicadas
+    df = pd.DataFrame(
+        {
+            "a": [1, 2, 1],
+            "b": ["x", "y", "x"],
+        }
+    )  # linha 0 e 2 são inteiramente duplicadas
     check_duplicate_rows(df, report)
 
     assert any("Duplicatas" == f.category for f in report.findings)
@@ -162,6 +171,7 @@ def test_check_duplicate_rows(report):
 # ---------------------------------------------------------------------------
 # Testes unitários — colunas obrigatórias e match aproximado (fuzzy)
 # ---------------------------------------------------------------------------
+
 
 def test_check_required_columns_exact_match(report):
     df = pd.DataFrame(columns=["id_pedido", "valor"])
@@ -200,6 +210,7 @@ def test_check_required_columns_missing(report):
 # ---------------------------------------------------------------------------
 # Testes unitários — tipos de dados
 # ---------------------------------------------------------------------------
+
 
 def test_check_mixed_types_detects_inconsistency(report):
     df = pd.DataFrame({"col": [1, "dois", 3, "quatro"]})
@@ -248,6 +259,7 @@ def test_check_expected_types_data_ambigua_gera_aviso(report):
 # dependendo do export. tipos_esperados agora aceita uma lista para essas
 # colunas, em vez de forçar um único tipo fixo.
 
+
 def test_check_expected_types_lista_aceita_numerico(report):
     df = pd.DataFrame({"cliente_id": ["101", "102", "103"]})
     check_expected_types(df, {"cliente_id": ["numero", "texto"]}, report)
@@ -277,6 +289,7 @@ def test_check_expected_types_lista_nenhum_candidato_bate(report):
 # Testes unitários — converter_tipos_colunas (tratamento) com lista de tipos
 # ---------------------------------------------------------------------------
 
+
 def test_converter_tipos_lista_usa_primeiro_candidato_compativel():
     df = pd.DataFrame({"cliente_id": ["101", "102", "103"]})
     resultado = converter_tipos_colunas(df.copy(), {"cliente_id": ["numero", "texto"]})
@@ -293,7 +306,9 @@ def test_converter_tipos_lista_cai_no_fallback_texto():
 
     with warnings.catch_warnings(record=True) as capturados:
         warnings.simplefilter("always")
-        resultado = converter_tipos_colunas(df.copy(), {"cliente_id": ["numero", "texto"]})
+        resultado = converter_tipos_colunas(
+            df.copy(), {"cliente_id": ["numero", "texto"]}
+        )
 
     assert list(resultado["cliente_id"]) == ["CLI_109", "CLI_136", "CLI_122"]
     assert not resultado["cliente_id"].isna().any()
@@ -317,6 +332,7 @@ def test_converter_tipos_sem_fallback_gera_aviso_e_preserva_coluna():
 
 
 # ---------------------------------------------------------------------------
+
 
 def test_load_csv_utf8():
     buffer = io.BytesIO("coluna_a,coluna_b\n1,café".encode("utf-8-sig"))
@@ -347,16 +363,20 @@ def test_load_csv_ambos_encodings_falham_gera_erro_claro():
     `raise UnicodeDecodeError("mensagem")` com um único argumento, o que
     sempre disparava um TypeError (UnicodeDecodeError exige 5 argumentos
     posicionais) em vez de reportar o erro de fato."""
-    with patch(
-        "validador_planilhas.pd.read_csv",
-        side_effect=UnicodeDecodeError("utf-8", b"\xff", 0, 1, "invalid"),
-    ), pytest.raises(EncodingDetectionError):
+    with (
+        patch(
+            "validador_planilhas.pd.read_csv",
+            side_effect=UnicodeDecodeError("utf-8", b"\xff", 0, 1, "invalid"),
+        ),
+        pytest.raises(EncodingDetectionError),
+    ):
         _load_csv("fake.csv")
 
 
 # ---------------------------------------------------------------------------
 # Testes unitários — deduplicação de nomes de aba
 # ---------------------------------------------------------------------------
+
 
 def test_resolve_duplicate_sheet_names_sem_colisao():
     resolved = resolve_duplicate_sheet_names(["Vendas", "Compras"])
@@ -401,19 +421,29 @@ def test_resolve_duplicate_sheet_names_sufixo_nao_viola_limite():
 # completo do script (parsing de argumentos, leitura de arquivo, decisão de
 # formato de saída) — é exatamente onde estava o bug crítico original.
 
+
 def test_cli_chave_duplicata_nao_quebra(tmp_path, monkeypatch):
     """Teste de regressão do bug crítico original: `args.chave-duplicata`
     era interpretado como subtração inválida e derrubava o script em toda
     execução que usasse --chave-duplicata."""
     arquivo = tmp_path / "vendas.xlsx"
-    pd.DataFrame({"id_pedido": [1, 2, 2], "valor": [10, 20, 30]}).to_excel(arquivo, index=False)
+    pd.DataFrame({"id_pedido": [1, 2, 2], "valor": [10, 20, 30]}).to_excel(
+        arquivo, index=False
+    )
 
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setattr(sys, "argv", [
-        "validador_planilhas.py", str(arquivo),
-        "--chave-duplicata", "id_pedido",
-        "--report", "rel.md",
-    ])
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "validador_planilhas.py",
+            str(arquivo),
+            "--chave-duplicata",
+            "id_pedido",
+            "--report",
+            "rel.md",
+        ],
+    )
 
     codigo = vp.main()
 
@@ -431,11 +461,18 @@ def test_cli_sheet_indice_numerico(tmp_path, monkeypatch):
         pd.DataFrame({"b": [2, 3]}).to_excel(writer, sheet_name="Segunda", index=False)
 
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setattr(sys, "argv", [
-        "validador_planilhas.py", str(arquivo),
-        "--sheet", "1",  # índice 1 = "Segunda"
-        "--report", "rel.md",
-    ])
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "validador_planilhas.py",
+            str(arquivo),
+            "--sheet",
+            "1",  # índice 1 = "Segunda"
+            "--report",
+            "rel.md",
+        ],
+    )
 
     codigo = vp.main()
 
@@ -459,13 +496,24 @@ def test_cli_all_sheets_dedup_case_insensitive(tmp_path, monkeypatch):
     fake_df = pd.DataFrame({"id_pedido": [1, 2]})
 
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setattr(sys, "argv", [
-        "validador_planilhas.py", "fake.xlsx",
-        "--all-sheets", "--output", str(saida), "--report", str(relatorio),
-    ])
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "validador_planilhas.py",
+            "fake.xlsx",
+            "--all-sheets",
+            "--output",
+            str(saida),
+            "--report",
+            str(relatorio),
+        ],
+    )
 
-    with patch("validador_planilhas.pd.ExcelFile", return_value=FakeExcelFile()), \
-         patch("validador_planilhas.pd.read_excel", return_value=fake_df):
+    with (
+        patch("validador_planilhas.pd.ExcelFile", return_value=FakeExcelFile()),
+        patch("validador_planilhas.pd.read_excel", return_value=fake_df),
+    ):
         codigo = vp.main()
 
     assert codigo == 0
@@ -479,11 +527,20 @@ def test_cli_permission_error_mensagem_amigavel(tmp_path, monkeypatch, capsys):
     aberto em outro programa) deve gerar mensagem amigável e código de saída
     2, não o erro genérico "Erro ao processar o arquivo: ..."."""
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setattr(sys, "argv", [
-        "validador_planilhas.py", "bloqueado.xlsx", "--report", "rel.md",
-    ])
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "validador_planilhas.py",
+            "bloqueado.xlsx",
+            "--report",
+            "rel.md",
+        ],
+    )
 
-    with patch("validador_planilhas.load_spreadsheet", side_effect=PermissionError("em uso")):
+    with patch(
+        "validador_planilhas.load_spreadsheet", side_effect=PermissionError("em uso")
+    ):
         codigo = vp.main()
 
     assert codigo == 2
@@ -500,10 +557,19 @@ def test_cli_output_csv_com_all_sheets_uma_aba(tmp_path, monkeypatch):
     saida_csv = tmp_path / "saida.csv"
 
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setattr(sys, "argv", [
-        "validador_planilhas.py", str(arquivo),
-        "--all-sheets", "--output", str(saida_csv), "--report", "rel.md",
-    ])
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "validador_planilhas.py",
+            str(arquivo),
+            "--all-sheets",
+            "--output",
+            str(saida_csv),
+            "--report",
+            "rel.md",
+        ],
+    )
 
     codigo = vp.main()
 
@@ -515,6 +581,7 @@ def test_cli_output_csv_com_all_sheets_uma_aba(tmp_path, monkeypatch):
 # ---------------------------------------------------------------------------
 # Testes unitários — Segunda Auditoria (ações e fechamento de lacunas)
 # ---------------------------------------------------------------------------
+
 
 def test_render_markdown_report_com_renomeacao(report):
     """Ação 4: Testa render_markdown_report com column_rename_map preenchido."""
@@ -594,7 +661,9 @@ def test_check_duplicate_key_coluna_inexistente(report):
     """Lacuna de cobertura: checagem de chave quando a coluna não existe no DF."""
     df = pd.DataFrame({"id": [1, 2]})
     check_duplicate_key(df, "coluna_fantasma", report)
-    assert any("não foi encontrada após padronização" in f.message for f in report.findings)
+    assert any(
+        "não foi encontrada após padronização" in f.message for f in report.findings
+    )
 
 
 def test_check_mixed_types_coluna_numerica_pura_e_string_numerica(report):
@@ -612,20 +681,28 @@ def test_compatibilidade_tipo_data_com_serie_numerica(report):
     """Lacuna de cobertura: _compatibilidade_tipo('data') com série numérica e string."""
     s_num = pd.Series([100, 200, 300])
     _compatibilidade_tipo(s_num, "data", "col_num", report)
-    assert any("Coluna 'col_num' está configurada como tipo 'data'" in f.message for f in report.findings)
+    assert any(
+        "Coluna 'col_num' está configurada como tipo 'data'" in f.message
+        for f in report.findings
+    )
 
     report_str = ValidationReport(source_file="teste.xlsx")
     s_str = pd.Series(["100", "200", "300"])
     _compatibilidade_tipo(s_str, "data", "col_str", report_str)
-    assert any("Coluna 'col_str' está configurada como tipo 'data'" in f.message for f in report_str.findings)
+    assert any(
+        "Coluna 'col_str' está configurada como tipo 'data'" in f.message
+        for f in report_str.findings
+    )
 
 
 def test_check_expected_types_ausente_nula_e_sem_candidato(report):
     """Lacuna de cobertura: coluna ausente, coluna 100% nula e lista de tipos sem match."""
-    df = pd.DataFrame({
-        "col_nula": [None, None],
-        "codigo": ["abc", "def"],
-    })
+    df = pd.DataFrame(
+        {
+            "col_nula": [None, None],
+            "codigo": ["abc", "def"],
+        }
+    )
     expected = {
         "col_inexistente": "numero",
         "col_nula": "numero",
@@ -633,7 +710,9 @@ def test_check_expected_types_ausente_nula_e_sem_candidato(report):
     }
     check_expected_types(df, expected, report)
     # Apenas 'codigo' deve gerar aviso de tipo incompatível
-    incompat_findings = [f for f in report.findings if "não é compatível com nenhum" in f.message]
+    incompat_findings = [
+        f for f in report.findings if "não é compatível com nenhum" in f.message
+    ]
     assert len(incompat_findings) == 1
     assert "codigo" in incompat_findings[0].message
 
@@ -643,7 +722,9 @@ def test_standardize_columns_colisao_gera_sufixo(report):
     df = pd.DataFrame(columns=["Coluna A", "coluna_a"])
     df_padrao = standardize_columns(df, report)
     assert list(df_padrao.columns) == ["coluna_a", "coluna_a_1"]
-    assert any("Coluna duplicada após padronização" in f.message for f in report.findings)
+    assert any(
+        "Coluna duplicada após padronização" in f.message for f in report.findings
+    )
 
 
 def test_standardize_column_name_vazio():
@@ -679,14 +760,18 @@ def test_tentar_converter_data_e_desconhecido():
 def test_converter_tipos_colunas_fallback_texto_e_desconhecido():
     """Lacuna de cobertura: converter_tipos_colunas com fallback 'texto' e tipo inválido."""
     df = pd.DataFrame({"col": [1, 2, 3]})
-    df_conv = converter_tipos_colunas(df, {"col": "texto", "col_inex": "tipo_desconhecido"})
+    df_conv = converter_tipos_colunas(
+        df, {"col": "texto", "col_inex": "tipo_desconhecido"}
+    )
     assert "col" in df_conv.columns
 
 
 def test_tratar_dataframe_completo_sem_tipos_esperados():
     """Lacuna de cobertura: tratar_dataframe_completo com tipos_esperados=None."""
     df = pd.DataFrame({"a": [1, 1, 2], "b": [None, None, None]})
-    df_tratado = tratar_dataframe_completo(df, chave_duplicata=None, tipos_esperados=None)
+    df_tratado = tratar_dataframe_completo(
+        df, chave_duplicata=None, tipos_esperados=None
+    )
     assert list(df_tratado.columns) == ["a"]
     assert len(df_tratado) == 2
 
@@ -694,9 +779,14 @@ def test_tratar_dataframe_completo_sem_tipos_esperados():
 def test_cli_arquivo_nao_encontrado(tmp_path, monkeypatch, capsys):
     """Lacuna de cobertura: CLI com arquivo inexistente."""
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setattr(sys, "argv", [
-        "validador_planilhas.py", "arquivo_que_nao_existe.xlsx",
-    ])
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "validador_planilhas.py",
+            "arquivo_que_nao_existe.xlsx",
+        ],
+    )
     codigo = vp.main()
     assert codigo == 2
     assert "arquivo não encontrado" in capsys.readouterr().err
@@ -705,25 +795,44 @@ def test_cli_arquivo_nao_encontrado(tmp_path, monkeypatch, capsys):
 def test_cli_erro_inesperado(tmp_path, monkeypatch, capsys):
     """Lacuna de cobertura: CLI com erro genérico inesperado."""
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setattr(sys, "argv", [
-        "validador_planilhas.py", "qualquer.xlsx",
-    ])
-    with patch("validador_planilhas.load_spreadsheet", side_effect=RuntimeError("falha catastrófica")):
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "validador_planilhas.py",
+            "qualquer.xlsx",
+        ],
+    )
+    with patch(
+        "validador_planilhas.load_spreadsheet",
+        side_effect=RuntimeError("falha catastrófica"),
+    ):
         codigo = vp.main()
     assert codigo == 2
     assert "falha catastrófica" in capsys.readouterr().err
 
 
-def test_cli_all_sheets_com_output_csv_multiplas_abas_erro(tmp_path, monkeypatch, capsys):
+def test_cli_all_sheets_com_output_csv_multiplas_abas_erro(
+    tmp_path, monkeypatch, capsys
+):
     """Lacuna de cobertura: CLI com --all-sheets e --output .csv com múltiplas abas."""
     monkeypatch.chdir(tmp_path)
     fake_df = pd.DataFrame({"col": [1]})
-    monkeypatch.setattr(sys, "argv", [
-        "validador_planilhas.py", "fake.xlsx",
-        "--all-sheets", "--output", "saida.csv",
-    ])
-    with patch("validador_planilhas.pd.ExcelFile", return_value=FakeExcelFile()), \
-         patch("validador_planilhas.pd.read_excel", return_value=fake_df):
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "validador_planilhas.py",
+            "fake.xlsx",
+            "--all-sheets",
+            "--output",
+            "saida.csv",
+        ],
+    )
+    with (
+        patch("validador_planilhas.pd.ExcelFile", return_value=FakeExcelFile()),
+        patch("validador_planilhas.pd.read_excel", return_value=fake_df),
+    ):
         codigo = vp.main()
     assert codigo == 2
     assert ".csv não suporta múltiplas abas" in capsys.readouterr().err
@@ -733,12 +842,20 @@ def test_cli_output_xlsx_com_tratamento(tmp_path, monkeypatch):
     """Lacuna de cobertura: CLI com --output .xlsx salvando dataframe tratado."""
     arquivo = tmp_path / "entrada.xlsx"
     saida = tmp_path / "saida.xlsx"
-    pd.DataFrame({"id_pedido": [1, 1], "valor": [10, 10]}).to_excel(arquivo, index=False)
+    pd.DataFrame({"id_pedido": [1, 1], "valor": [10, 10]}).to_excel(
+        arquivo, index=False
+    )
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setattr(sys, "argv", [
-        "validador_planilhas.py", str(arquivo),
-        "--output", str(saida),
-    ])
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "validador_planilhas.py",
+            str(arquivo),
+            "--output",
+            str(saida),
+        ],
+    )
     codigo = vp.main()
     assert codigo == 0
     assert saida.exists()
@@ -768,7 +885,9 @@ def test_check_mixed_types_edge_cases(report):
 
 def test_run_single_validation_com_expected_types():
     df = pd.DataFrame({"id": [1, 2], "nome": ["A", "B"]})
-    df_val, rep = run_single_validation(df, source_name="teste.xlsx", expected_types={"id": "numero"})
+    df_val, rep = run_single_validation(
+        df, source_name="teste.xlsx", expected_types={"id": "numero"}
+    )
     assert df_val.shape == (2, 2)
     assert not rep.has_critical()
 
@@ -788,5 +907,59 @@ def test_converter_tipos_colunas_tipo_desconhecido():
 
 def test_tratar_dataframe_completo_com_tipos():
     df = pd.DataFrame({"id": ["1", "2"], "data": ["01/01/2026", "02/01/2026"]})
-    df_trat = tratar_dataframe_completo(df, chave_duplicata="id", tipos_esperados={"id": "numero", "data": "data"})
+    df_trat = tratar_dataframe_completo(
+        df, chave_duplicata="id", tipos_esperados={"id": "numero", "data": "data"}
+    )
     assert df_trat.shape == (2, 2)
+
+
+def test_validation_report_source_name_property():
+    rep = ValidationReport(source_file="dados/vendas.xlsx")
+    assert rep.source_name == "dados/vendas.xlsx"
+
+
+def test_gerar_pdf_relatorio_sucesso():
+    rep = ValidationReport(
+        source_file="vendas.xlsx", sheet_name="Aba 1", total_rows=100, total_cols=5
+    )
+    rep.add(SEVERITY_CRITICAL, "Colunas", "Coluna obrigatória ausente")
+    rep.add(SEVERITY_WARNING, "Valores nulos", "Coluna valor com 10% de nulos")
+    rep.add(SEVERITY_INFO, "Geral", "Processamento inicial concluído")
+    rep.column_rename_map = {"Valor Venda": "valor_venda"}
+
+    pdf_bytes = gerar_pdf_relatorio([rep])
+    assert isinstance(pdf_bytes, bytes)
+    assert len(pdf_bytes) > 500
+    assert pdf_bytes.startswith(b"%PDF")
+
+
+def test_gerar_pdf_relatorio_caracteres_especiais_xml():
+    """Valida se gerar_pdf_relatorio lida com caracteres XML sensíveis sem lançar ExpatError."""
+    rep = ValidationReport(
+        source_file="relatorio & dados <2026>.xlsx",
+        sheet_name="Aba <1> & 2",
+        total_rows=5,
+        total_cols=2,
+    )
+    rep.add(
+        SEVERITY_CRITICAL,
+        "Filtros <Especiais>",
+        "Valores < 0 encontrados & não suportados",
+    )
+    rep.column_rename_map = {"Item <A> & B": "item_a_b"}
+
+    pdf_bytes = gerar_pdf_relatorio([rep])
+    assert isinstance(pdf_bytes, bytes)
+    assert len(pdf_bytes) > 500
+    assert pdf_bytes.startswith(b"%PDF")
+
+
+def test_gerar_pdf_relatorio_sem_ocorrencias():
+    """Valida geração de PDF quando a partição não possui anomalias registradas."""
+    rep = ValidationReport(
+        source_file="vendas_limpo.xlsx", sheet_name=None, total_rows=10, total_cols=2
+    )
+    pdf_bytes = gerar_pdf_relatorio([rep])
+    assert isinstance(pdf_bytes, bytes)
+    assert len(pdf_bytes) > 500
+    assert pdf_bytes.startswith(b"%PDF")
