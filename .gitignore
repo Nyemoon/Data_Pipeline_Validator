@@ -89,8 +89,10 @@ dataset_multitab*.xlsx
 *.pdf
 rel_*.md
 audit_report.*
-relatorio_validacao*.md
+# Arquivos temporários de configuração de teste (ex: config1.json, config_teste.json)
+# Observação: config.json e config.exemplo.json permanecem versionados.
 config?.json
+config_teste*.json
 
 # Planilhas de saída geradas por testes ou execuções locais (opcional, ajuste se quiser versionar alguma)
 # *limpo.xlsx
