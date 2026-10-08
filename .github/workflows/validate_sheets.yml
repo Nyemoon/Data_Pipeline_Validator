@@ -58,7 +58,7 @@ jobs:
           pip install -e ".[dev]"
 
       - name: Rodar Suíte de Testes
-        run: pytest test_validador.py -v
+        run: pytest test_validador.py -v --cov=validador_planilhas --cov=tratador_planilhas --cov=nomes_colunas --cov=relatorio_pdf --cov-report=term-missing
 
       - name: Lint (ruff)
         run: ruff check .
