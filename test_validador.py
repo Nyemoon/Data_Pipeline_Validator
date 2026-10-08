@@ -36,9 +36,9 @@ from validador_planilhas import (
     SEVERITY_INFO,
     SEVERITY_WARNING,
     EncodingDetectionError,
+    Severity,
     ValidationReport,
     _compatibilidade_tipo,
-    _load_csv,
     _resolve_sheet_arg,
     check_duplicate_key,
     check_duplicate_rows,
@@ -49,6 +49,7 @@ from validador_planilhas import (
     check_required_columns,
     get_excel_sheets,
     load_config,
+    load_csv,
     load_spreadsheet,
     render_markdown_report,
     resolve_duplicate_sheet_names,
@@ -336,7 +337,7 @@ def test_converter_tipos_sem_fallback_gera_aviso_e_preserva_coluna():
 
 def test_load_csv_utf8():
     buffer = io.BytesIO("coluna_a,coluna_b\n1,café".encode("utf-8-sig"))
-    df = _load_csv(buffer)
+    df = load_csv(buffer)
     assert list(df.columns) == ["coluna_a", "coluna_b"]
 
 
@@ -344,7 +345,7 @@ def test_load_csv_fallback_latin1():
     """CORRIGIDO (auditoria): CSVs em latin-1 (comuns em exports brasileiros)
     devem ser lidos via fallback, não quebrar na primeira tentativa utf-8."""
     buffer = io.BytesIO("coluna_a,cidade\n1,São Paulo".encode("latin-1"))
-    df = _load_csv(buffer)
+    df = load_csv(buffer)
     assert "São Paulo" in df["cidade"].values
 
 
@@ -353,7 +354,7 @@ def test_load_csv_reusa_buffer_entre_tentativas():
     tentativas de encoding, senão a segunda tentativa lê a partir de onde a
     primeira parou (ou de nada) em vez do arquivo inteiro."""
     buffer = io.BytesIO("id,cidade\n1,Brasília".encode("latin-1"))
-    df = _load_csv(buffer)
+    df = load_csv(buffer)
     assert len(df) == 1
     assert list(df.columns) == ["id", "cidade"]
 
@@ -370,7 +371,7 @@ def test_load_csv_ambos_encodings_falham_gera_erro_claro():
         ),
         pytest.raises(EncodingDetectionError),
     ):
-        _load_csv("fake.csv")
+        load_csv("fake.csv")
 
 
 # ---------------------------------------------------------------------------
@@ -963,3 +964,17 @@ def test_gerar_pdf_relatorio_sem_ocorrencias():
     assert isinstance(pdf_bytes, bytes)
     assert len(pdf_bytes) > 500
     assert pdf_bytes.startswith(b"%PDF")
+
+
+def test_severity_enum_and_backward_compatibility():
+    """Valida enum Severity e retrocompatibilidade com constantes SEVERITY_*."""
+    assert Severity.INFO == "INFO"
+    assert Severity.WARNING == "AVISO"
+    assert Severity.CRITICAL == "CRÍTICO"
+    assert SEVERITY_INFO == Severity.INFO
+    assert SEVERITY_WARNING == Severity.WARNING
+    assert SEVERITY_CRITICAL == Severity.CRITICAL
+    assert isinstance(Severity.INFO, str)
+    assert isinstance(Severity.WARNING, str)
+    assert isinstance(Severity.CRITICAL, str)
+
