@@ -9,20 +9,8 @@ from pathlib import Path
 import pandas as pd
 import streamlit as st
 from openpyxl.utils.exceptions import InvalidFileException
-from reportlab.lib import colors
 
-# Importações para geração do PDF via ReportLab
-from reportlab.lib.pagesizes import letter
-from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
-from reportlab.platypus import (
-    HRFlowable,
-    Paragraph,
-    SimpleDocTemplate,
-    Spacer,
-    Table,
-    TableStyle,
-)
-
+from relatorio_pdf import gerar_pdf_relatorio
 from tratador_planilhas import tratar_dataframe_completo
 from validador_planilhas import (
     SEVERITY_CRITICAL,
@@ -48,158 +36,29 @@ st.set_page_config(
 # Helpers para carregar imagens locais da pasta /imagens em Base64
 # ---------------------------------------------------------------------------
 
+
 def carregar_imagem_base64(caminho_relativo: str) -> str:
     caminho_completo = Path(__file__).parent / caminho_relativo
     if caminho_completo.exists():
         with open(caminho_completo, "rb") as f:
             encoded = base64.b64encode(f.read()).decode()
-            mime = "image/png" if caminho_completo.suffix.lower() == ".png" else "image/jpeg"
+            mime = (
+                "image/png"
+                if caminho_completo.suffix.lower() == ".png"
+                else "image/jpeg"
+            )
             return f"data:{mime};base64,{encoded}"
     return ""
 
+
 # Caminhos configurados para a pasta /imagens
-bg_image_path = "imagens/background.png"          
-sidebar_bg_path = "imagens/runtime.png"          
-logo_path = "imagens/logo.png"                   
+bg_image_path = "imagens/background.png"
+sidebar_bg_path = "imagens/runtime.png"
+logo_path = "imagens/logo.png"
 
 bg_base64 = carregar_imagem_base64(bg_image_path)
 sidebar_bg_base64 = carregar_imagem_base64(sidebar_bg_path)
 
-# ---------------------------------------------------------------------------
-# Função auxiliar otimizada para gerar PDF estruturado
-# ---------------------------------------------------------------------------
-
-def gerar_pdf_relatorio(reports: list) -> bytes:
-    buffer = io.BytesIO()
-    doc = SimpleDocTemplate(
-        buffer, 
-        pagesize=letter, 
-        rightMargin=40, 
-        leftMargin=40, 
-        topMargin=40, 
-        bottomMargin=40
-    )
-    
-    styles = getSampleStyleSheet()
-    
-    # Paleta de Cores Alinhada ao Tema
-    primary_color = colors.HexColor('#2A1B3D')  
-    accent_color = colors.HexColor('#FF9E64')   
-    critical_color = colors.HexColor('#FF7B72') 
-    warning_color = colors.HexColor('#E3B341')  
-    text_color = colors.HexColor('#333333')     
-    muted_color = colors.HexColor('#666666')    
-    bg_table = colors.HexColor('#F8F9FA')       
-    
-    # Estilos de Tipografia
-    style_title = ParagraphStyle(
-        'TitlePDF', parent=styles['Heading1'],
-        fontName='Helvetica-Bold', fontSize=18, leading=22,
-        textColor=primary_color, spaceAfter=4
-    )
-    style_subtitle = ParagraphStyle(
-        'SubtitlePDF', parent=styles['Normal'],
-        fontName='Helvetica', fontSize=9, leading=13,
-        textColor=muted_color, spaceAfter=12
-    )
-    style_heading = ParagraphStyle(
-        'HeadingPDF', parent=styles['Heading2'],
-        fontName='Helvetica-Bold', fontSize=12, leading=16,
-        textColor=primary_color, spaceBefore=10, spaceAfter=4
-    )
-    style_body = ParagraphStyle(
-        'BodyPDF', parent=styles['Normal'],
-        fontName='Helvetica', fontSize=8.5, leading=12,
-        textColor=text_color, spaceAfter=4
-    )
-    style_table_header = ParagraphStyle(
-        'TableHeaderPDF', parent=styles['Normal'],
-        fontName='Helvetica-Bold', fontSize=8.5, leading=11,
-        textColor=colors.white
-    )
-    style_table_cell = ParagraphStyle(
-        'TableCellPDF', parent=styles['Normal'],
-        fontName='Helvetica', fontSize=8, leading=11,
-        textColor=text_color
-    )
-
-    story = []
-    
-    # Cabeçalho Principal
-    story.append(Paragraph("Relatório de Auditoria de Dados", style_title))
-    story.append(Paragraph("Data Pipeline Validator | Análise de Integridade para Power Query", style_subtitle))
-    story.append(HRFlowable(width="100%", thickness=1.5, color=accent_color, spaceAfter=12))
-    
-    for report in reports:
-        aba_nome = report.sheet_name or 'Global Stream (CSV)'
-        origem_nome = getattr(report, 'source_name', 'Ficheiro Carregado')
-        
-        story.append(Paragraph(f"<b>Partição / Aba:</b> {aba_nome}", style_heading))
-        story.append(Paragraph(f"<b>Origem:</b> {origem_nome} | <b>Total de Linhas:</b> {report.total_rows} | <b>Total de Colunas:</b> {report.total_cols}", style_body))
-        
-        crit_count = report.count_by_severity(SEVERITY_CRITICAL)
-        warn_count = report.count_by_severity(SEVERITY_WARNING)
-        info_count = report.count_by_severity(SEVERITY_INFO)
-        
-        resumo_text = f"<b>Métricas de Auditoria:</b> " \
-                      f"<font color='{critical_color.hexval()}'>Críticos: {crit_count}</font> | " \
-                      f"<font color='{warning_color.hexval()}'>Avisos: {warn_count}</font> | " \
-                      f"<font color='{primary_color.hexval()}'>Informativos: {info_count}</font>"
-        story.append(Paragraph(resumo_text, style_body))
-        story.append(Spacer(1, 6))
-        
-        if report.column_rename_map:
-            story.append(Paragraph("Mapeamento de Normalização de Colunas (snake_case)", style_heading))
-            table_data = [[Paragraph("Coluna Original", style_table_header), Paragraph("Coluna Padronizada", style_table_header)]]
-            for orig, pad in report.column_rename_map.items():
-                table_data.append([
-                    Paragraph(str(orig), style_table_cell),
-                    Paragraph(str(pad), style_table_cell)
-                ])
-            
-            t = Table(table_data, colWidths=[240, 240])
-            t.setStyle(TableStyle([
-                ('BACKGROUND', (0,0), (-1,0), primary_color),
-                ('ALIGN', (0,0), (-1,-1), 'LEFT'),
-                ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-                ('BOTTOMPADDING', (0,0), (-1,-1), 5),
-                ('TOPPADDING', (0,0), (-1,-1), 5),
-                ('ROWBACKGROUNDS', (0,1), (-1,-1), [bg_table, colors.white]),
-                ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#DDDDDD'))
-            ]))
-            story.append(t)
-            story.append(Spacer(1, 8))
-            
-        story.append(Paragraph("Log de Ocorrências", style_heading))
-        if not report.findings:
-            story.append(Paragraph("Nenhuma anomalia registada nesta partição.", style_body))
-        else:
-            findings_data = [[Paragraph("Severidade", style_table_header), Paragraph("Categoria", style_table_header), Paragraph("Mensagem", style_table_header)]]
-            for f in report.findings:
-                sev_label = "CRÍTICO" if f.severity == SEVERITY_CRITICAL else ("AVISO" if f.severity == SEVERITY_WARNING else "INFO")
-                findings_data.append([
-                    Paragraph(f"<b>{sev_label}</b>", style_table_cell),
-                    Paragraph(str(f.category), style_table_cell),
-                    Paragraph(str(f.message), style_table_cell)
-                ])
-            
-            tf = Table(findings_data, colWidths=[70, 110, 300])
-            tf.setStyle(TableStyle([
-                ('BACKGROUND', (0,0), (-1,0), primary_color),
-                ('ALIGN', (0,0), (-1,-1), 'LEFT'),
-                ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-                ('BOTTOMPADDING', (0,0), (-1,-1), 5),
-                ('TOPPADDING', (0,0), (-1,-1), 5),
-                ('ROWBACKGROUNDS', (0,1), (-1,-1), [bg_table, colors.white]),
-                ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#DDDDDD'))
-            ]))
-            story.append(tf)
-            
-        story.append(Spacer(1, 15))
-
-    doc.build(story)
-    buffer.seek(0)
-    return buffer.getvalue()
 
 # ---------------------------------------------------------------------------
 # Sistema visual com Glassmorphism Avançado
@@ -450,10 +309,12 @@ st.markdown(
 # Cabeçalho Principal
 # ---------------------------------------------------------------------------
 
-st.markdown('<div class="app-title">Data Ingestion Validator</div>', unsafe_allow_html=True)
+st.markdown(
+    '<div class="app-title">Data Ingestion Validator</div>', unsafe_allow_html=True
+)
 st.markdown(
     '<div class="app-subtitle">Inspeção estática, normalização de esquemas e validação '
-    'de restrições estruturais para fontes tabulares antes do carregamento no Power Query.</div>',
+    "de restrições estruturais para fontes tabulares antes do carregamento no Power Query.</div>",
     unsafe_allow_html=True,
 )
 
@@ -498,7 +359,9 @@ if uploaded_config:
         chaves_validas = {"colunas_obrigatorias", "tipos_esperados", "chave_duplicata"}
         chaves_extras = set(config_data.keys()) - chaves_validas
         if chaves_extras:
-            st.sidebar.warning(f"Atributos desconhecidos ignorados: {', '.join(sorted(chaves_extras))}")
+            st.sidebar.warning(
+                f"Atributos desconhecidos ignorados: {', '.join(sorted(chaves_extras))}"
+            )
         st.sidebar.success("Contrato de esquema carregado.")
     except json.JSONDecodeError as err:
         st.sidebar.error(f"JSON inválido: {err}")
@@ -521,14 +384,16 @@ with col_source:
     )
 
 if not uploaded_file:
-    st.markdown('<div class="section-header">Fluxo Operacional</div>', unsafe_allow_html=True)
+    st.markdown(
+        '<div class="section-header">Fluxo Operacional</div>', unsafe_allow_html=True
+    )
     c1, c2, c3 = st.columns(3, gap="medium")
     with c1:
         st.markdown(
             '<div class="step-container"><div class="step-index">Phase 01</div>'
             '<div class="step-title">Inbound Source</div>'
             '<div class="step-desc">Carregamento de ficheiros tabulares brutos com deteção automática de codificação e delimitadores.</div>'
-            '</div>',
+            "</div>",
             unsafe_allow_html=True,
         )
     with c2:
@@ -536,7 +401,7 @@ if not uploaded_file:
             '<div class="step-container"><div class="step-index">Phase 02</div>'
             '<div class="step-title">Schema Validation</div>'
             '<div class="step-desc">Varredura de nulos, desvios de tipagem, unicidade de chaves e padronização para snake_case.</div>'
-            '</div>',
+            "</div>",
             unsafe_allow_html=True,
         )
     with c3:
@@ -544,7 +409,7 @@ if not uploaded_file:
             '<div class="step-container"><div class="step-index">Phase 03</div>'
             '<div class="step-title">Sanitized Export</div>'
             '<div class="step-desc">Geração de relatórios de auditoria em Markdown/PDF e pacotes de dados prontos para consumo analítico.</div>'
-            '</div>',
+            "</div>",
             unsafe_allow_html=True,
         )
 
@@ -559,7 +424,9 @@ if uploaded_file:
             unsafe_allow_html=True,
         )
         st.write("")
-        run_validation = st.button("Executar Auditoria", type="primary", use_container_width=True)
+        run_validation = st.button(
+            "Executar Auditoria", type="primary", use_container_width=True
+        )
 
     if run_validation:
         with st.status("Processando pipeline de dados...", expanded=False) as status:
@@ -590,9 +457,7 @@ if uploaded_file:
                         expected_types=expected_types,
                         duplicate_key=duplicate_key,
                     )
-                    # Injetando o nome de origem caso não venha nativo no report
-                    report.source_name = uploaded_file.name
-                    
+
                     save_key = sheet_save_keys[sname]
                     if save_key != sname and sname is not None:
                         report.add(
@@ -620,11 +485,15 @@ if uploaded_file:
 
             except EncodingDetectionError:
                 status.update(label="Falha de Codificação", state="error")
-                st.error("Falha ao resolver codificação do ficheiro CSV. Reencarregue o ficheiro em UTF-8.")
+                st.error(
+                    "Falha ao resolver codificação do ficheiro CSV. Reencarregue o ficheiro em UTF-8."
+                )
                 st.session_state.pop("validation_result", None)
             except (zipfile.BadZipFile, InvalidFileException, ValueError):
                 status.update(label="Formato Inválido", state="error")
-                st.error("Estrutura do ficheiro corrompida ou formato incompatível com os parsers suportados.")
+                st.error(
+                    "Estrutura do ficheiro corrompida ou formato incompatível com os parsers suportados."
+                )
                 st.session_state.pop("validation_result", None)
             except Exception as e:  # noqa: BLE001 — fallback de último recurso; erros inesperados devem ser exibidos ao usuário
                 status.update(label="Erro Crítico de Execução", state="error")
@@ -634,7 +503,9 @@ if uploaded_file:
     result = st.session_state.get("validation_result")
 
     if result and result["signature"] != current_signature:
-        st.info("Source alterado. Acione 'Executar Auditoria' para recalcular o pipeline.")
+        st.info(
+            "Source alterado. Acione 'Executar Auditoria' para recalcular o pipeline."
+        )
     elif result:
         reports = result["reports"]
         dfs_cleaned = result["dfs_cleaned"]
@@ -643,22 +514,25 @@ if uploaded_file:
         total_criticos = sum(r.count_by_severity(SEVERITY_CRITICAL) for r in reports)
         total_avisos = sum(r.count_by_severity(SEVERITY_WARNING) for r in reports)
 
-        st.markdown('<div class="section-header">Relatório de Auditoria</div>', unsafe_allow_html=True)
+        st.markdown(
+            '<div class="section-header">Relatório de Auditoria</div>',
+            unsafe_allow_html=True,
+        )
 
         if total_criticos == 0:
             st.markdown(
                 '<div class="pipeline-banner pipeline-ok">'
-                '<span>STATUS: PASS (Integridade estrutural validada)</span>'
-                '<span>0 CRITICAL ERRORS</span>'
-                '</div>',
+                "<span>STATUS: PASS (Integridade estrutural validada)</span>"
+                "<span>0 CRITICAL ERRORS</span>"
+                "</div>",
                 unsafe_allow_html=True,
             )
         else:
             st.markdown(
                 f'<div class="pipeline-banner pipeline-fail">'
-                f'<span>STATUS: FAILED (Inconsistências críticas detetadas)</span>'
-                f'<span>{total_criticos} CRITICAL ISSUE(S)</span>'
-                '</div>',
+                f"<span>STATUS: FAILED (Inconsistências críticas detetadas)</span>"
+                f"<span>{total_criticos} CRITICAL ISSUE(S)</span>"
+                "</div>",
                 unsafe_allow_html=True,
             )
 
@@ -687,7 +561,9 @@ if uploaded_file:
                     vol_str += f" ({diff_rows} eliminadas)"
                 vol_str += f" | Colunas: {report.total_cols}"
 
-                st.markdown(f'<div class="meta-badge">{vol_str}</div>', unsafe_allow_html=True)
+                st.markdown(
+                    f'<div class="meta-badge">{vol_str}</div>', unsafe_allow_html=True
+                )
                 st.write("")
 
                 if report.column_rename_map:
@@ -711,18 +587,29 @@ if uploaded_file:
                         subset = [f for f in report.findings if f.severity == sev]
                         if not subset:
                             continue
-                        with st.expander(f"[{label_sev.upper()}] - {len(subset)} ocorrência(s)", expanded=default_exp):
+                        with st.expander(
+                            f"[{label_sev.upper()}] - {len(subset)} ocorrência(s)",
+                            expanded=default_exp,
+                        ):
                             for f in subset:
                                 comp(f"[{f.category}] {f.message}")
 
-        st.markdown('<div class="section-header">Artifacts & Export</div>', unsafe_allow_html=True)
+        st.markdown(
+            '<div class="section-header">Artifacts & Export</div>',
+            unsafe_allow_html=True,
+        )
 
         d1, d2 = st.columns(2)
 
         markdown_report = render_markdown_report(reports)
 
         with d1:
-            report_format = st.radio("Formato do Relatório", ["Markdown (.md)", "PDF (.pdf)"], horizontal=True, label_visibility="collapsed")
+            report_format = st.radio(
+                "Formato do Relatório",
+                ["Markdown (.md)", "PDF (.pdf)"],
+                horizontal=True,
+                label_visibility="collapsed",
+            )
             if report_format == "Markdown (.md)":
                 st.download_button(
                     label="Baixar Relatório de Auditoria (.md)",
@@ -744,7 +631,7 @@ if uploaded_file:
                 )
 
         with d2:
-            st.write("") 
+            st.write("")
             if len(dfs_cleaned) == 1 and result_file_extension == ".csv":
                 single_df = next(iter(dfs_cleaned.values()))
                 csv_bytes = single_df.to_csv(index=False).encode("utf-8-sig")
