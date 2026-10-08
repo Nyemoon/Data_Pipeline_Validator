@@ -52,6 +52,7 @@ import re
 import sys
 import warnings
 from dataclasses import dataclass, field
+from enum import Enum
 from pathlib import Path
 
 import pandas as pd
@@ -70,9 +71,16 @@ NULL_CRITICAL_THRESHOLD = 0.30  # 30%+ é crítico
 FUZZY_MATCH_THRESHOLD = 0.80  # 80% de similaridade para match aproximado
 MIXED_TYPES_SAMPLE_LIMIT = 50_000  # teto de linhas varridas por coluna (perf)
 
-SEVERITY_INFO = "INFO"
-SEVERITY_WARNING = "AVISO"
-SEVERITY_CRITICAL = "CRÍTICO"
+
+class Severity(str, Enum):
+    INFO = "INFO"
+    WARNING = "AVISO"
+    CRITICAL = "CRÍTICO"
+
+
+SEVERITY_INFO = Severity.INFO
+SEVERITY_WARNING = Severity.WARNING
+SEVERITY_CRITICAL = Severity.CRITICAL
 
 
 class EncodingDetectionError(ValueError):
@@ -127,14 +135,14 @@ class ValidationReport:
 def load_spreadsheet(path: str, sheet_name: str | int | None = 0) -> pd.DataFrame:
     ext = Path(path).suffix.lower()
     if ext == ".csv":
-        return _load_csv(path)
+        return load_csv(path)
     elif ext in (".xlsx", ".xls"):
         return pd.read_excel(path, sheet_name=sheet_name)
     else:
         raise ValueError(f"Formato não suportado: {ext}. Use .csv, .xlsx ou .xls.")
 
 
-def _load_csv(path_or_buffer) -> pd.DataFrame:
+def load_csv(path_or_buffer) -> pd.DataFrame:
     """Tenta ler CSV detectando encoding, sem mascarar erros não relacionados
     a encoding (arquivo ausente, delimitador inválido, etc.).
 
@@ -167,6 +175,10 @@ def _load_csv(path_or_buffer) -> pd.DataFrame:
         f"Não foi possível decodificar '{nome}' com nenhum dos encodings "
         f"testados ({', '.join(encodings_to_try)})."
     ) from last_error
+
+
+# Alias mantido para retrocompatibilidade
+_load_csv = load_csv
 
 
 def get_excel_sheets(path: str) -> list[str]:
