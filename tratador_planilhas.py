@@ -27,6 +27,7 @@ def remover_colunas_vazias(df: pd.DataFrame) -> pd.DataFrame:
         df = df.drop(columns=colunas_vazias)
     return df
 
+
 def remover_duplicadas(df: pd.DataFrame, chave: str | None = None) -> pd.DataFrame:
     """Remove linhas inteiramente duplicadas ou duplicadas com base em uma chave.
 
@@ -47,6 +48,7 @@ def remover_duplicadas(df: pd.DataFrame, chave: str | None = None) -> pd.DataFra
             stacklevel=2,
         )
     return df.drop_duplicates()
+
 
 def _tentar_converter(series: pd.Series, tipo: str) -> pd.Series | None:
     """Tenta converter `series` para `tipo`. Retorna a série convertida, ou
@@ -99,7 +101,9 @@ def converter_tipos_colunas(
         if col not in df.columns:
             continue
 
-        candidatos = tipo_ou_lista if isinstance(tipo_ou_lista, list) else [tipo_ou_lista]
+        candidatos = (
+            tipo_ou_lista if isinstance(tipo_ou_lista, list) else [tipo_ou_lista]
+        )
         original = df[col]
         validos_antes = original.notna().sum()
         aplicado = False
@@ -136,7 +140,12 @@ def converter_tipos_colunas(
 
     return df
 
-def tratar_dataframe_completo(df: pd.DataFrame, chave_duplicata: str | None = None, tipos_esperados: dict[str, str] | None = None) -> pd.DataFrame:
+
+def tratar_dataframe_completo(
+    df: pd.DataFrame,
+    chave_duplicata: str | None = None,
+    tipos_esperados: dict[str, str] | None = None,
+) -> pd.DataFrame:
     """Aplica todas as rotinas de tratamento padrão de forma encadeada."""
     df = remover_colunas_vazias(df)
     df = remover_duplicadas(df, chave=chave_duplicata)
