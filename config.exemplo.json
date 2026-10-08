@@ -1,0 +1,14 @@
+{
+  "colunas_obrigatorias": [
+    "id_pedido",
+    "data_venda",
+    "valor_total",
+    "cliente_id"
+  ],
+  "tipos_esperados": {
+    "data_venda": "data",
+    "valor_total": "numero",
+    "cliente_id": ["numero", "texto"]
+  },
+  "chave_duplicata": "id_pedido"
+}
