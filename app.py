@@ -17,7 +17,7 @@ from validador_planilhas import (
     SEVERITY_INFO,
     SEVERITY_WARNING,
     EncodingDetectionError,
-    _load_csv,
+    load_csv,
     render_markdown_report,
     resolve_duplicate_sheet_names,
     run_single_validation,
@@ -433,7 +433,7 @@ if uploaded_file:
             try:
                 status.write("A ler fluxo de dados...")
                 if file_extension == ".csv":
-                    df = _load_csv(uploaded_file)
+                    df = load_csv(uploaded_file)
                     dfs_to_validate = {None: df}
                     sheet_save_keys: dict[str | None, str] = {None: "default"}
                 else:
